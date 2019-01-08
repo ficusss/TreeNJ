@@ -7,6 +7,17 @@ from Bio.Phylo import BaseTree, draw_graphviz
 
 class TreeNJ:
     def __init__(self, dist_matrix=None):
+        
+        if dist_matrix is not None:
+            if type(dist_matrix) is np.ndarray:
+                dist_matrix = pd.DataFrame(dist_matrix)
+                
+            check_value = ((dist_matrix.shape[0] != dist_matrix.shape[1])
+                or (any([dist_matrix[i][i] for i in dist_matrix.index])))
+            
+            if check_value:
+                dist_matrix = None
+        
         self.dist_matrix = dist_matrix
         self.tree = None
         self._nodes = None
@@ -14,14 +25,30 @@ class TreeNJ:
         self._d_matrix = None
         
     def set_distance_matrix(self, dist_matrix):
-        if type(dist_matrix) is np.ndarray:
-            dist_matrix = pd.DataFrame(dist_matrix)
+        
+        if dist_matrix is not None:
+            if type(dist_matrix) is np.ndarray:
+                dist_matrix = pd.DataFrame(dist_matrix)
+                
+            check_value = ((dist_matrix.shape[0] != dist_matrix.shape[1])
+                or (any([dist_matrix[i][i] for i in dist_matrix.index])))
+            
+            if check_value:
+                return (False)
         
         self.tree = None
         self.dist_matrix = dist_matrix
         
+        return (True)
+        
     def fit(self):
-        assert(self.dist_matrix is not None)
+        
+        if self.dist_matrix is None:
+            return (False)
+        
+        assert(self.dist_matrix.shape[0] == self.dist_matrix.shape[1])
+        assert(not any([self.dist_matrix[i][i] for i in self.dist_matrix.index]))
+        
         self.tree = None
         
         self._nodes = {n: BaseTree.Clade(None, str(n))
@@ -56,19 +83,26 @@ class TreeNJ:
         node2.clades.append(node1)
         self.tree = BaseTree.Tree(node2, rooted=False)
         
+        self._nodes = None
+        self._q_matrix = None
+        self._d_matrix = None
+        
+        return (True)
 
     def get_tree(self):
         return (self.tree)
     
     def draw(self, filename=None):
-        if (self.tree is None):
-            self.fit()
+        if self.tree is None:
+            if not self.fit():
+                return (False)
         
         draw_graphviz(self.tree)
         
         if filename:
             plt.savefig(filename)
             
+        return (True)
     
     def _get_dist_for_nodes(self, r, c, i):
         return ((self._d_matrix[r][i] + self._d_matrix[c][i] - self._d_matrix[r][c]) / 2)
@@ -121,24 +155,7 @@ class TreeNJ:
         self._nodes[new_n] = BaseTree.Clade(None, new_n, [tmp1, tmp2])
 
 
-q = 2
-    
-if q == 1:
-    
-    dist_matrix = np.array([[  0,   1,   2,   3, 1.5],
-                            [  1,   0, 2.3, 4.1,   1],
-                            [  2, 2.3,   0,   3,   5],
-                            [  3, 4.1,   3,   0,   4],
-                            [1.5,   1,   5,   4,   0]])
-                    
-    tmp = TreeNJ()
-    tmp.set_distance_matrix(dist_matrix)
-    tmp.fit()
-    print(tmp.get_tree())
-    tmp.draw()
-
-
-if q == 2:
+if __name__ == "__main__":
     
     dist_matrix = np.array([[  0,   5,   9,   9,   8],
                             [  5,   0,  10,  10,   9],
@@ -149,8 +166,10 @@ if q == 2:
     dist_matrix = pd.DataFrame(dist_matrix, columns=['a', 'b', 'c', 'd', 'e'],
                                index=['a', 'b', 'c', 'd', 'e'])
     
+    tmp = TreeNJ()
     tmp.set_distance_matrix(dist_matrix)
     tmp.fit()
     print(tmp.get_tree())
     tmp.draw("figure.png")
-
+    
+    
